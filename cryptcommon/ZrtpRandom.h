@@ -29,6 +29,7 @@
 #include <unistd.h>
 #endif
 #include <stdint.h>
+#include <stdbool.h>
 #include <sys/types.h>
 
 #ifdef __cplusplus
