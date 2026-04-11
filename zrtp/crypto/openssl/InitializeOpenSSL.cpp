@@ -17,6 +17,10 @@
 #include <stdio.h>
 #include <openssl/evp.h>
 #include <config.h>
+#include "openssl_compat.h"
+
+/* Only include threading setup for OpenSSL 1.0.x */
+#if defined(OPENSSL_THREADING_MANUAL)
 
 #ifdef _MSWINDOWS_
 #include <windows.h>
@@ -45,16 +49,21 @@ static void myLockingCallback(int, int, const char *, int);
  * does not use this Thread class.
  */
 
+#endif /* OPENSSL_THREADING_MANUAL */
+
 static int initialized = 0;
 
 int initializeOpenSSL ()
 {
-
     if (initialized) {
-    return 1;
+        return 1;
     }
     initialized = 1;
+    
+#if defined(OPENSSL_THREADING_MANUAL)
     threadLockSetup();
+#endif
+    
     return 1;
 }
 
@@ -64,7 +73,11 @@ int finalizeOpenSSL ()
         return 1;
 
     initialized = 0;
+    
+#if defined(OPENSSL_THREADING_MANUAL)
     threadLockCleanup();
+#endif
+    
     return 1;
 }
 

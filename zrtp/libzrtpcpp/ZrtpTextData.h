@@ -106,6 +106,7 @@ extern const char* mandatoryCipher;
 
 extern char dh2k[];
 extern char dh3k[];
+extern char dh4k[];
 extern char ec25[];
 extern char ec38[];
 extern char e255[];

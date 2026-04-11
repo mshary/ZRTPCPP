@@ -36,9 +36,11 @@
 
 static BigNum bnP2048 = {0};
 static BigNum bnP3072 = {0};
+static BigNum bnP4096 = {0};
 
 static BigNum bnP2048MinusOne = {0};
 static BigNum bnP3072MinusOne = {0};
+static BigNum bnP4096MinusOne = {0};
 
 static BigNum two = {0};
 
@@ -118,7 +120,6 @@ static const uint8_t P3072[] =
     0xA9, 0x3A, 0xD2, 0xCA, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
 };
 
-/* **************
 static const uint8_t P4096[] =
 {
 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xC9, 0x0F, 0xDA, 0xA2,
@@ -165,7 +166,6 @@ static const uint8_t P4096[] =
 0x90, 0xA6, 0xC0, 0x8F, 0x4D, 0xF4, 0x35, 0xC9, 0x34, 0x06, 0x31, 0x99,
 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
 };
-*************** */
 
 ZrtpDH::ZrtpDH(const char* type) {
 
@@ -180,6 +180,9 @@ ZrtpDH::ZrtpDH(const char* type) {
     }
     else if (*(int32_t*)type == *(int32_t*)dh3k) {
         pkType = DH3K;
+    }
+    else if (*(int32_t*)type == *(int32_t*)dh4k) {
+        pkType = DH4K;
     }
     else if (*(int32_t*)type == *(int32_t*)ec25) {
         pkType = EC25;
@@ -207,6 +210,8 @@ ZrtpDH::ZrtpDH(const char* type) {
         bnInsertBigBytes(&bnP2048, P2048, 0, sizeof(P2048));
         bnBegin(&bnP3072);
         bnInsertBigBytes(&bnP3072, P3072, 0, sizeof(P3072));
+        bnBegin(&bnP4096);
+        bnInsertBigBytes(&bnP4096, P4096, 0, sizeof(P4096));
 
         bnBegin(&bnP2048MinusOne);
         bnCopy(&bnP2048MinusOne, &bnP2048);
@@ -215,6 +220,10 @@ ZrtpDH::ZrtpDH(const char* type) {
         bnBegin(&bnP3072MinusOne);
         bnCopy(&bnP3072MinusOne, &bnP3072);
         bnSubQ(&bnP3072MinusOne, 1);
+
+        bnBegin(&bnP4096MinusOne);
+        bnCopy(&bnP4096MinusOne, &bnP4096);
+        bnSubQ(&bnP4096MinusOne, 1);
 
         dhinit = 1;
     }
@@ -225,6 +234,7 @@ ZrtpDH::ZrtpDH(const char* type) {
     switch (pkType) {
     case DH2K:
     case DH3K:
+    case DH4K:
         bnInsertBigBytes(&tmpCtx->privKey, random, 0, 256/8);
         break;
 
@@ -261,6 +271,7 @@ ZrtpDH::~ZrtpDH() {
     switch (pkType) {
     case DH2K:
     case DH3K:
+    case DH4K:
         bnEnd(&tmpCtx->pubKey);
         break;
 
@@ -285,7 +296,7 @@ int32_t ZrtpDH::computeSecretKey(uint8_t *pubKeyBytes, uint8_t *secret) {
     int32_t length = getDhSize();
 
     BigNum sec;
-    if (pkType == DH2K || pkType == DH3K) {
+    if (pkType == DH2K || pkType == DH3K || pkType == DH4K) {
         BigNum pubKeyOther;
         bnBegin(&pubKeyOther);
         bnBegin(&sec);
@@ -297,6 +308,9 @@ int32_t ZrtpDH::computeSecretKey(uint8_t *pubKeyBytes, uint8_t *secret) {
         }
         else if (pkType == DH3K) {
             bnExpMod(&sec, &pubKeyOther, &tmpCtx->privKey, &bnP3072);
+        }
+        else if (pkType == DH4K) {
+            bnExpMod(&sec, &pubKeyOther, &tmpCtx->privKey, &bnP4096);
         }
         else {
             return 0;
@@ -361,6 +375,10 @@ int32_t ZrtpDH::generatePublicKey()
         bnExpMod(&tmpCtx->pubKey, &two, &tmpCtx->privKey, &bnP3072);
         break;
 
+    case DH4K:
+        bnExpMod(&tmpCtx->pubKey, &two, &tmpCtx->privKey, &bnP4096);
+        break;
+
     case EC25:
     case EC38:
     case E255:
@@ -379,6 +397,9 @@ uint32_t ZrtpDH::getDhSize() const
         break;
     case DH3K:
         return 3072/8;
+        break;
+    case DH4K:
+        return 4096/8;
         break;
 
     case EC25:
@@ -401,7 +422,7 @@ uint32_t ZrtpDH::getDhSize() const
 int32_t ZrtpDH::getPubKeySize() const
 {
     dhCtx* tmpCtx = static_cast<dhCtx*>(ctx);
-    if (pkType == DH2K || pkType == DH3K)
+    if (pkType == DH2K || pkType == DH3K || pkType == DH4K)
         return bnBytes(&tmpCtx->pubKey);
 
     if (pkType == EC25 || pkType == EC38 || pkType == E414)
@@ -417,7 +438,7 @@ int32_t ZrtpDH::getPubKeyBytes(uint8_t *buf) const
 {
     dhCtx* tmpCtx = static_cast<dhCtx*>(ctx);
 
-    if (pkType == DH2K || pkType == DH3K) {
+    if (pkType == DH2K || pkType == DH3K || pkType == DH4K) {
         // get len of pub_key, prepend with zeros to DH size
         int size = getPubKeySize();
         int32_t prepend = getDhSize() - size;
@@ -477,7 +498,11 @@ int32_t ZrtpDH::checkPubKey(uint8_t *pubKeyBytes) const
     else if (pkType == DH3K) {
         if (bnCmp(&bnP3072MinusOne, &pubKeyOther) == 0) {
             return 0;
-
+        }
+    }
+    else if (pkType == DH4K) {
+        if (bnCmp(&bnP4096MinusOne, &pubKeyOther) == 0) {
+            return 0;
         }
     }
     else {
@@ -498,6 +523,8 @@ const char* ZrtpDH::getDHtype()
         return dh2k;
     case DH3K:
         return dh3k;
+    case DH4K:
+        return dh4k;
     case EC25:
         return ec25;
     case EC38:

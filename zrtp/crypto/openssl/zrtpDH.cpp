@@ -31,11 +31,11 @@
 
 static BIGNUM* bnP2048 = nullptr;
 static BIGNUM* bnP3072 = nullptr;
-// static BIGNUM* bnP4096 = nullptr;
+static BIGNUM* bnP4096 = nullptr;
 
 static BIGNUM* bnP2048MinusOne = nullptr;
 static BIGNUM* bnP3072MinusOne = nullptr;
-// static BIGNUM* bnP4096MinusOne = nullptr;
+static BIGNUM* bnP4096MinusOne = nullptr;
 
 static uint8_t dhinit = 0;
 
@@ -107,7 +107,6 @@ static const uint8_t P3072[] =
     0xA9, 0x3A, 0xD2, 0xCA, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
 };
 
-/* **************
 static const uint8_t P4096[] =
 {
 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xC9, 0x0F, 0xDA, 0xA2,
@@ -154,7 +153,6 @@ static const uint8_t P4096[] =
 0x90, 0xA6, 0xC0, 0x8F, 0x4D, 0xF4, 0x35, 0xC9, 0x34, 0x06, 0x31, 0x99,
 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
 };
-*************** */
 
 ZrtpDH::ZrtpDH(const char* type) {
 
@@ -166,6 +164,9 @@ ZrtpDH::ZrtpDH(const char* type) {
     }
     else if (*(int32_t*)type == *(int32_t*)dh3k) {
         pkType = DH3K;
+    }
+    else if (*(int32_t*)type == *(int32_t*)dh4k) {
+        pkType = DH4K;
     }
     else if (*(int32_t*)type == *(int32_t*)ec25) {
         pkType = EC25;
@@ -182,7 +183,7 @@ ZrtpDH::ZrtpDH(const char* type) {
     if (!dhinit) {
         bnP2048 = BN_bin2bn(P2048,sizeof(P2048),nullptr);
         bnP3072 = BN_bin2bn(P3072,sizeof(P3072),nullptr);
-//      bnP4096 = BN_bin2bn(P4096,sizeof(P4096),nullptr);
+        bnP4096 = BN_bin2bn(P4096,sizeof(P4096),nullptr);
 
         bnP2048MinusOne = BN_dup(bnP2048);
         BN_sub_word(bnP2048MinusOne, 1);
@@ -190,8 +191,8 @@ ZrtpDH::ZrtpDH(const char* type) {
         bnP3072MinusOne = BN_dup(bnP3072);
         BN_sub_word(bnP3072MinusOne, 1);
 
-//      bnP4096MinusOne = BN_dup(bnP4096);
-//      BN_sub_word(bnP4096MinusOne, 1);
+        bnP4096MinusOne = BN_dup(bnP4096);
+        BN_sub_word(bnP4096MinusOne, 1);
         dhinit = 1;
     }
 
@@ -199,6 +200,7 @@ ZrtpDH::ZrtpDH(const char* type) {
     switch (pkType) {
     case DH2K:
     case DH3K:
+    case DH4K:
         ctx = static_cast<void*>(DH_new());
         tmpCtx = static_cast<DH*>(ctx);
         tmpCtx->g = BN_new();
@@ -211,6 +213,11 @@ ZrtpDH::ZrtpDH(const char* type) {
         }
         else if (pkType == DH3K) {
             tmpCtx->p = BN_dup(bnP3072);
+            RAND_bytes(random, 64);
+            tmpCtx->priv_key = BN_bin2bn(random, 32, nullptr);
+        }
+        else if (pkType == DH4K) {
+            tmpCtx->p = BN_dup(bnP4096);
             RAND_bytes(random, 64);
             tmpCtx->priv_key = BN_bin2bn(random, 32, nullptr);
         }
@@ -235,6 +242,7 @@ ZrtpDH::~ZrtpDH() {
     switch (pkType) {
     case DH2K:
     case DH3K:
+    case DH4K:
         DH_free(static_cast<DH*>(ctx));
         break;
 
@@ -249,7 +257,7 @@ ZrtpDH::~ZrtpDH() {
 
 int32_t ZrtpDH::computeSecretKey(uint8_t *pubKeyBytes, uint8_t *secret) {
 
-    if (pkType == DH2K || pkType == DH3K) {
+    if (pkType == DH2K || pkType == DH3K || pkType == DH4K) {
         auto* tmpCtx = static_cast<DH*>(ctx);
 
         if (tmpCtx->pub_key != nullptr) {
@@ -281,7 +289,7 @@ int32_t ZrtpDH::computeSecretKey(uint8_t *pubKeyBytes, uint8_t *secret) {
 
 int32_t ZrtpDH::generatePublicKey()
 {
-    if (pkType == DH2K || pkType == DH3K)
+    if (pkType == DH2K || pkType == DH3K || pkType == DH4K)
         return DH_generate_key(static_cast<DH*>(ctx));
 
     if (pkType == EC25 || pkType == EC38)
@@ -291,7 +299,7 @@ int32_t ZrtpDH::generatePublicKey()
 
 uint32_t ZrtpDH::getDhSize() const
 {
-    if (pkType == DH2K || pkType == DH3K)
+    if (pkType == DH2K || pkType == DH3K || pkType == DH4K)
         return DH_size(static_cast<DH*>(ctx));
 
     if (pkType == EC25)
@@ -304,7 +312,7 @@ uint32_t ZrtpDH::getDhSize() const
 
 int32_t ZrtpDH::getPubKeySize() const
 {
-    if (pkType == DH2K || pkType == DH3K)
+    if (pkType == DH2K || pkType == DH3K || pkType == DH4K)
         return BN_num_bytes(static_cast<DH*>(ctx)->pub_key);
 
     if (pkType == EC25 || pkType == EC38)
@@ -318,7 +326,7 @@ int32_t ZrtpDH::getPubKeySize() const
 int32_t ZrtpDH::getPubKeyBytes(uint8_t *buf) const
 {
 
-    if (pkType == DH2K || pkType == DH3K) {
+    if (pkType == DH2K || pkType == DH3K || pkType == DH4K) {
         // get len of pub_key, prepend with zeros to DH size
         int32_t prepend = getDhSize() - getPubKeySize();
         if (prepend > 0) {
@@ -375,8 +383,11 @@ int32_t ZrtpDH::checkPubKey(uint8_t *pubKeyBytes) const
         if (BN_cmp(bnP3072MinusOne, pubKeyOther) == 0)
             return 0;
     }
+    else if (pkType == DH4K) {
+        if (BN_cmp(bnP4096MinusOne, pubKeyOther) == 0)
+            return 0;
+    }
     else {
-//        if (BN_cmp(bnP4096MinusOne, pubKeyOther) == 0)
         return 0;
     }
     int one = BN_is_one(pubKeyOther);
@@ -394,6 +405,8 @@ const char* ZrtpDH::getDHtype()
         return dh2k;
     case DH3K:
         return dh3k;
+    case DH4K:
+        return dh4k;
     case EC25:
         return ec25;
     case EC38:

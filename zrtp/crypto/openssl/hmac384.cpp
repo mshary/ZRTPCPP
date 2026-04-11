@@ -16,6 +16,7 @@
 
 #include <openssl/hmac.h>
 #include <zrtp/crypto/hmac384.h>
+#include "openssl_compat.h"
 
 void hmac_sha384(const uint8_t* key, uint64_t key_length,
                  const uint8_t* data, uint64_t data_length,
@@ -32,14 +33,15 @@ void hmacSha384(const uint8_t* key, uint64_t key_length,
                 uint8_t* mac, uint32_t* mac_length)
 {
     unsigned int tmp;
-    HMAC_CTX ctx = {};
-    HMAC_CTX_init( &ctx );
-    HMAC_Init_ex( &ctx, key, static_cast<int>(key_length), EVP_sha384(), nullptr );
+    hmac_ctx_t ctx = hmac_ctx_new();
+    if (!ctx) return;
+    
+    HMAC_Init_ex( ctx, key, static_cast<int>(key_length), EVP_sha384(), nullptr );
 
     for (size_t i = 0, size = data.size(); i < size; i++) {
-        HMAC_Update(&ctx, data[i], dataLength[i]);
+        HMAC_Update(ctx, data[i], dataLength[i]);
     }
-    HMAC_Final( &ctx, mac, &tmp);
+    HMAC_Final( ctx, mac, &tmp);
     *mac_length = tmp;
-    HMAC_CTX_cleanup( &ctx );
+    hmac_ctx_free(ctx);
 }

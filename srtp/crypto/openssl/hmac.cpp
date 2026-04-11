@@ -22,6 +22,7 @@
 #include <openssl/hmac.h>
 #include <srtp/crypto/hmac.h>
 #include <vector>
+#include "../../../zrtp/crypto/openssl/openssl_compat.h"
 
 void hmac_sha1(const uint8_t* key, int64_t keyLength,
                const uint8_t* data, uint64_t dataLength,
@@ -36,30 +37,33 @@ void hmac_sha1(const uint8_t* key, uint64_t keyLength,
                const std::vector<const uint8_t*>& data,
                const std::vector<uint64_t>& dataLength,
                uint8_t* mac, int32_t* macLength) {
-    HMAC_CTX ctx = {};
-    HMAC_CTX_init(&ctx);
-    HMAC_Init_ex(&ctx, key, static_cast<int>(keyLength), EVP_sha1(), NULL);
+    hmac_ctx_t ctx = hmac_ctx_new();
+    if (!ctx) return;
+    
+    HMAC_Init_ex(ctx, key, static_cast<int>(keyLength), EVP_sha1(), NULL);
     for (size_t i = 0, size = data.size(); i < size; i++) {
-        HMAC_Update(&ctx, data[i], dataLength[i]);
+        HMAC_Update(ctx, data[i], dataLength[i]);
     }
-    HMAC_Final(&ctx, mac, reinterpret_cast<uint32_t*>(macLength));
-    HMAC_CTX_cleanup(&ctx);
+    HMAC_Final(ctx, mac, reinterpret_cast<uint32_t*>(macLength));
+    hmac_ctx_free(ctx);
 }
 
 void* createSha1HmacContext(const uint8_t* key, uint64_t keyLength)
 {
-    auto* ctx = (HMAC_CTX*)malloc(sizeof(HMAC_CTX));
-
-    HMAC_CTX_init(ctx);
+    hmac_ctx_t ctx = hmac_ctx_new();
+    if (!ctx) return nullptr;
+    
     HMAC_Init_ex(ctx, key, static_cast<int>(keyLength), EVP_sha1(), nullptr);
     return ctx;
 }
 
 void* initializeSha1HmacContext(void* ctx, uint8_t* key, uint64_t keyLength)
 {
-    auto *pctx = (HMAC_CTX*)ctx;
-
+    hmac_ctx_t pctx = (hmac_ctx_t)ctx;
+    
+#if defined(OPENSSL_1_0_API)
     HMAC_CTX_init(pctx);
+#endif
     HMAC_Init_ex(pctx, key, static_cast<int>(keyLength), EVP_sha1(), nullptr);
     return pctx;
 }
@@ -67,7 +71,7 @@ void* initializeSha1HmacContext(void* ctx, uint8_t* key, uint64_t keyLength)
 void hmacSha1Ctx(void* ctx, const uint8_t* data, uint64_t data_length,
                  uint8_t* mac, int32_t* mac_length)
 {
-    auto* pctx = (HMAC_CTX*)ctx;
+    hmac_ctx_t pctx = (hmac_ctx_t)ctx;
 
     HMAC_Init_ex(pctx, nullptr, 0, nullptr, nullptr);
     HMAC_Update(pctx, data, data_length );
@@ -79,7 +83,7 @@ void hmacSha1Ctx(void* ctx,
                  const std::vector<uint64_t>& dataLength,
                  uint8_t* mac, uint32_t* macLength)
 {
-    auto* pctx = (HMAC_CTX*)ctx;
+    hmac_ctx_t pctx = (hmac_ctx_t)ctx;
 
     HMAC_Init_ex(pctx, nullptr, 0, nullptr, nullptr);
     for (size_t i = 0, size = data.size(); i < size; i++) {
@@ -91,7 +95,6 @@ void hmacSha1Ctx(void* ctx,
 void freeSha1HmacContext(void* ctx)
 {
     if (ctx) {
-        HMAC_CTX_cleanup((HMAC_CTX*)ctx);
-        free(ctx);
+        hmac_ctx_free((hmac_ctx_t)ctx);
     }
 }
