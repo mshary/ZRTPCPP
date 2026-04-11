@@ -1,7 +1,13 @@
 ## Notice
 
 This code has experimental changes in various encryption algorithms.
+
 ***DO NOT USE THIS CODEBASE FOR PRODUCTION SYSTEMS***
+
+New features:
+
+* added support for openssl v3.x with backward compatibility to 1.1.x
+* added support for Finite field Diffie-Hellman with 4096 bit primes
 
 The original code is available here,
 
