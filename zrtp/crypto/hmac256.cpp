@@ -27,12 +27,6 @@
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
 
-typedef struct _hmacSha256Context {
-    sha256_ctx ctx;
-    sha256_ctx innerCtx;
-    sha256_ctx outerCtx;
-} hmacSha256Context;
-
 static int32_t hmacSha256Init(hmacSha256Context *ctx, const uint8_t *key, uint64_t kLength)
 {
     int32_t i;

@@ -8,6 +8,7 @@ New features:
 
 * added support for openssl v3.x with backward compatibility to 1.1.x
 * added support for Finite field Diffie-Hellman with 4096 bit primes
+* added support for SRTP authentication method HMAC-SHA256
 
 The original code is available here,
 

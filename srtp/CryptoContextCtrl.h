@@ -27,6 +27,7 @@
 
 #include "crypto/hmac.h"
 #include "cryptcommon/macSkein.h"
+#include "zrtp/crypto/hmac256.h"
 
 class SrtpSymCrypto;
 
@@ -74,9 +75,10 @@ class CryptoContextCtrl {
      *    for AES F8 mode.
      *
      * @param aalg
-     *    The authentication algorithm to use. Possible values are <code>
-     *    SrtpEncryptionNull, SrtpAuthenticationSha1Hmac, SrtpAuthenticationSkeinHmac
-     *    </code>.
+      *    The authentication algorithm to use. Possible values are <code>
+      *    SrtpEncryptionNull, SrtpAuthenticationSha1Hmac, SrtpAuthenticationSkeinHmac,
+      *    SrtpAuthenticationSha256Hmac
+      *    </code>.
      *
      * @param masterKey
      *    Pointer to the master key for this SRTCP cryptographic context.
@@ -299,6 +301,7 @@ class CryptoContextCtrl {
         typedef union _hmacCtx {
             SkeinCtx_t       hmacSkeinCtx;
             hmacSha1Context  hmacSha1Ctx;
+            hmacSha256Context hmacSha256Ctx;
         } HmacCtx;
 
         uint32_t ssrcCtx;

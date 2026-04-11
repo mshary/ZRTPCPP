@@ -34,17 +34,17 @@ void hmac_sha1(const uint8_t* key, int64_t keyLength,
 }
 
 void hmac_sha1(const uint8_t* key, uint64_t keyLength,
-               const std::vector<const uint8_t*>& data,
-               const std::vector<uint64_t>& dataLength,
-               uint8_t* mac, int32_t* macLength) {
+                const std::vector<const uint8_t*>& data,
+                const std::vector<uint64_t>& dataLength,
+                uint8_t* mac, int32_t* macLength) {
     hmac_ctx_t ctx = hmac_ctx_new();
     if (!ctx) return;
     
-    HMAC_Init_ex(ctx, key, static_cast<int>(keyLength), EVP_sha1(), NULL);
+    hmac_init_ex(ctx, key, static_cast<int>(keyLength), EVP_sha1());
     for (size_t i = 0, size = data.size(); i < size; i++) {
-        HMAC_Update(ctx, data[i], dataLength[i]);
+        hmac_update(ctx, data[i], dataLength[i]);
     }
-    HMAC_Final(ctx, mac, reinterpret_cast<uint32_t*>(macLength));
+    hmac_final(ctx, mac, reinterpret_cast<uint32_t*>(macLength));
     hmac_ctx_free(ctx);
 }
 
@@ -53,7 +53,7 @@ void* createSha1HmacContext(const uint8_t* key, uint64_t keyLength)
     hmac_ctx_t ctx = hmac_ctx_new();
     if (!ctx) return nullptr;
     
-    HMAC_Init_ex(ctx, key, static_cast<int>(keyLength), EVP_sha1(), nullptr);
+    hmac_init_ex(ctx, key, static_cast<int>(keyLength), EVP_sha1());
     return ctx;
 }
 
@@ -62,34 +62,34 @@ void* initializeSha1HmacContext(void* ctx, uint8_t* key, uint64_t keyLength)
     hmac_ctx_t pctx = (hmac_ctx_t)ctx;
     
 #if defined(OPENSSL_1_0_API)
-    HMAC_CTX_init(pctx);
+    hmac_ctx_init(pctx);
 #endif
-    HMAC_Init_ex(pctx, key, static_cast<int>(keyLength), EVP_sha1(), nullptr);
+    hmac_init_ex(pctx, key, static_cast<int>(keyLength), EVP_sha1());
     return pctx;
 }
 
 void hmacSha1Ctx(void* ctx, const uint8_t* data, uint64_t data_length,
-                 uint8_t* mac, int32_t* mac_length)
+                  uint8_t* mac, int32_t* mac_length)
 {
     hmac_ctx_t pctx = (hmac_ctx_t)ctx;
 
-    HMAC_Init_ex(pctx, nullptr, 0, nullptr, nullptr);
-    HMAC_Update(pctx, data, data_length );
-    HMAC_Final(pctx, mac, reinterpret_cast<uint32_t*>(mac_length) );
+    hmac_init_ex(pctx, nullptr, 0, nullptr);
+    hmac_update(pctx, data, data_length );
+    hmac_final(pctx, mac, reinterpret_cast<uint32_t*>(mac_length) );
 }
 
 void hmacSha1Ctx(void* ctx,
-                 const std::vector<const uint8_t*>& data,
-                 const std::vector<uint64_t>& dataLength,
-                 uint8_t* mac, uint32_t* macLength)
+                  const std::vector<const uint8_t*>& data,
+                  const std::vector<uint64_t>& dataLength,
+                  uint8_t* mac, uint32_t* macLength)
 {
     hmac_ctx_t pctx = (hmac_ctx_t)ctx;
 
-    HMAC_Init_ex(pctx, nullptr, 0, nullptr, nullptr);
+    hmac_init_ex(pctx, nullptr, 0, nullptr);
     for (size_t i = 0, size = data.size(); i < size; i++) {
-        HMAC_Update(pctx, data[i], dataLength[i]);
+        hmac_update(pctx, data[i], dataLength[i]);
     }
-    HMAC_Final(pctx, mac, reinterpret_cast<uint32_t*>(macLength) );
+    hmac_final(pctx, mac, reinterpret_cast<uint32_t*>(macLength) );
 }
 
 void freeSha1HmacContext(void* ctx)

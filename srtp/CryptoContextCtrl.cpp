@@ -153,6 +153,12 @@ CryptoContextCtrl::~CryptoContextCtrl(){
         delete f8Cipher;
         f8Cipher = NULL;
     }
+    
+    // Free MAC context if it was allocated (for SHA256)
+    if (aalg == SrtpAuthenticationSha256Hmac && macCtx != NULL) {
+        freeSha256HmacContext(macCtx);
+        macCtx = NULL;
+    }
 }
 
 void CryptoContextCtrl::srtcpEncrypt( uint8_t* rtp, int32_t len, uint32_t index, uint32_t ssrc )
@@ -260,6 +266,14 @@ void CryptoContextCtrl::srtcpAuthenticate(uint8_t* rtp, int32_t len, uint32_t in
         /* truncate the result */
         memcpy(tag, temp, getTagLength());
         break;
+    case SrtpAuthenticationSha256Hmac:
+        hmacSha256Ctx(macCtx,
+                      chunks,           // data chunks to hash
+                      chunkLength,      // length of the data to hash
+                      temp, &macL);
+        /* truncate the result */
+        memcpy(tag, temp, getTagLength());
+        break;
     }
 }
 
@@ -311,6 +325,10 @@ void CryptoContextCtrl::deriveSrtcpKeys()
 
         // Skein MAC uses number of bits as MAC size, not just bytes
         macCtx = initializeSkeinMacContext(macCtx, k_a, n_a, tagLength*8, Skein512);
+        break;
+    case SrtpAuthenticationSha256Hmac:
+        macCtx = &hmacCtx.hmacSha256Ctx;
+        macCtx = createSha256HmacContext(k_a, n_a);
         break;
     }
     memset(k_a, 0, n_a);

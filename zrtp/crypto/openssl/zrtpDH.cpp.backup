@@ -23,27 +23,10 @@
 #include <openssl/evp.h>
 #include <openssl/ec.h>
 #include <openssl/ecdh.h>
-#include <openssl/params.h>
-#include <openssl/core_names.h>
 
 #include <zrtp/crypto/zrtpDH.h>
 #include <zrtp/libzrtpcpp/ZrtpTextData.h>
 #include "openssl_compat.h"
-
-#if defined(OPENSSL_3_API)
-/* OpenSSL 3.x uses EVP_PKEY for DH and EC operations */
-typedef struct {
-    EVP_PKEY* pkey;
-    int is_dh;  /* 1 for DH, 0 for EC */
-    BIGNUM* dh_p; /* For DH: store p parameter */
-    BIGNUM* dh_g; /* For DH: store g parameter */
-} zrtp_evp_ctx;
-
-#define ZRTP_DH_CTX(ctx) ((zrtp_evp_ctx*)(ctx))
-#else
-/* OpenSSL 1.0.x and 1.1.x use DH or EC_KEY directly */
-#define ZRTP_DH_CTX(ctx) (ctx)
-#endif
 
 // extern void initializeOpenSSL();
 

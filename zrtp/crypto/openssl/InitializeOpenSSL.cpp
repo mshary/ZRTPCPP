@@ -185,7 +185,7 @@ static unsigned long solaris_thread_id(void) {
 }
 #endif /* SOLARIS */
 
-#if !defined _MSWINDOWS_ && !defined SOLARIS
+#if !defined _MSWINDOWS_ && !defined SOLARIS && defined(OPENSSL_THREADING_MANUAL)
 
 static pthread_mutex_t* lock_cs;
 static long* lock_count;
@@ -212,8 +212,13 @@ static void threadLockCleanup(void)
     fprintf(stderr,"cleanup\n");
     for (i = 0; i < CRYPTO_num_locks(); i++) {
     pthread_mutex_destroy(&(lock_cs[i]));
-    fprintf(stderr,"%8ld:%s\n",lock_count[i],
-        CRYPTO_get_lock_name(i));
+    fprintf(stderr,"%8ld:",lock_count[i]);
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
+    // CRYPTO_get_lock_name is deprecated in OpenSSL 3.0
+    fprintf(stderr,"%s\n", CRYPTO_get_lock_name(i));
+#else
+    fprintf(stderr,"lock_%d\n", i);
+#endif
     }
     OPENSSL_free(lock_cs);
     OPENSSL_free(lock_count);
@@ -235,7 +240,7 @@ static void myLockingCallback(int mode, int type, const char *file,
     pthread_mutex_unlock(&(lock_cs[type]));
     }
 }
-#endif /* !defined _MSWINDOWS_ && !defined SOLARIS */
+#endif /* !defined _MSWINDOWS_ && !defined SOLARIS && defined(OPENSSL_THREADING_MANUAL) */
 /*
 static unsigned long pthreads_thread_id(void)
 {

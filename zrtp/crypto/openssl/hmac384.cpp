@@ -32,16 +32,16 @@ void hmacSha384(const uint8_t* key, uint64_t key_length,
                 const std::vector<uint64_t>& dataLength,
                 uint8_t* mac, uint32_t* mac_length)
 {
-    unsigned int tmp;
+    unsigned int tmp = 0;
     hmac_ctx_t ctx = hmac_ctx_new();
     if (!ctx) return;
     
-    HMAC_Init_ex( ctx, key, static_cast<int>(key_length), EVP_sha384(), nullptr );
+    hmac_init_ex(ctx, key, static_cast<int>(key_length), EVP_sha384());
 
     for (size_t i = 0, size = data.size(); i < size; i++) {
-        HMAC_Update(ctx, data[i], dataLength[i]);
+        hmac_update(ctx, data[i], dataLength[i]);
     }
-    HMAC_Final( ctx, mac, &tmp);
+    hmac_final(ctx, mac, &tmp);
     *mac_length = tmp;
     hmac_ctx_free(ctx);
 }

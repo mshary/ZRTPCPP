@@ -29,6 +29,7 @@
 const int SrtpAuthenticationNull      = 0;
 const int SrtpAuthenticationSha1Hmac  = 1;
 const int SrtpAuthenticationSkeinHmac = 2;
+const int SrtpAuthenticationSha256Hmac = 3;
 
 const int SrtpEncryptionNull  = 0;
 const int SrtpEncryptionAESCM = 1;
@@ -45,6 +46,7 @@ const int SrtpEncryptionTWOF8 = 4;
 #endif
 #include "crypto/hmac.h"
 #include "cryptcommon/macSkein.h"
+#include "zrtp/crypto/hmac256.h"
 
 class SrtpSymCrypto;
 
@@ -162,9 +164,10 @@ public:
      *    for AESCM (Counter mode) and 4.1.2 for AES F8 mode.
      *
      * @param aalg
-     *    The authentication algorithm to use. Possible values are <code>
-     *    SrtpEncryptionNull, SrtpAuthenticationSha1Hmac, SrtpAuthenticationSkeinHmac
-     *    </code>.
+      *    The authentication algorithm to use. Possible values are <code>
+      *    SrtpEncryptionNull, SrtpAuthenticationSha1Hmac, SrtpAuthenticationSkeinHmac,
+      *    SrtpAuthenticationSha256Hmac
+      *    </code>.
      *
      * @param masterKey
      *    Pointer to the master key for this SRTP cryptographic context.
@@ -205,10 +208,11 @@ public:
      *    is the same as the master salt length.
      *
      * @param tagLength
-     *    The length is bytes of the authentication tag that SRTP appends
-     *    to the RTP packet. The @c CryptoContext supports @c SrtpAuthenticationSha1Hmac
-     *    with 4 and 10 byte (32 and 80 bits) and @c SrtpAuthenticationSkeinHmac
-     *    with 4 and 8 bytes (32 and 64 bits) tag length. Refer to chapter 4.2. in RFC 3711.
+      *    The length is bytes of the authentication tag that SRTP appends
+      *    to the RTP packet. The @c CryptoContext supports @c SrtpAuthenticationSha1Hmac
+      *    with 4 and 10 byte (32 and 80 bits), @c SrtpAuthenticationSkeinHmac
+      *    with 4 and 8 bytes (32 and 64 bits), and @c SrtpAuthenticationSha256Hmac
+      *    with 4 and 8 bytes (32 and 64 bits) tag length. Refer to chapter 4.2. in RFC 3711.
      */
     CryptoContext(uint32_t ssrc, int32_t roc,
                    int64_t  keyDerivRate,
@@ -423,6 +427,7 @@ private:
 #else
         hmacSha1Context  hmacSha1Ctx;
 #endif
+        hmacSha256Context hmacSha256Ctx;
     } HmacCtx;
 
 

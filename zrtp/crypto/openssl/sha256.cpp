@@ -27,11 +27,18 @@ void sha256(const uint8_t *data, uint64_t data_length, uint8_t *digest)
 void sha256(const std::vector<const uint8_t*>& data, const std::vector<uint64_t >& dataLength, uint8_t *digest)
 {
 	SHA256_CTX ctx = {};
+	#if defined(OPENSSL_3_API) && defined(__GNUC__)
+	#pragma GCC diagnostic push
+	#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+	#endif
 	SHA256_Init( &ctx);
     for (size_t i = 0, size = data.size(); i < size; i++) {
         SHA256_Update(&ctx, data[i], dataLength[i]);
     }
 	SHA256_Final(digest, &ctx);
+	#if defined(OPENSSL_3_API) && defined(__GNUC__)
+	#pragma GCC diagnostic pop
+	#endif
 }
 
 void* createSha256Context()
@@ -39,7 +46,14 @@ void* createSha256Context()
     auto* ctx = (SHA256_CTX*)malloc(sizeof (SHA256_CTX));
     if (ctx == nullptr)
         return nullptr;
+    #if defined(OPENSSL_3_API) && defined(__GNUC__)
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+    #endif
     SHA256_Init(ctx);
+    #if defined(OPENSSL_3_API) && defined(__GNUC__)
+    #pragma GCC diagnostic pop
+    #endif
     return (void*)ctx;
 }
 
@@ -48,7 +62,14 @@ void closeSha256Context(void* ctx, uint8_t * digest)
     auto* hd = (SHA256_CTX*)ctx;
 
     if (digest != nullptr && hd != nullptr) {
+        #if defined(OPENSSL_3_API) && defined(__GNUC__)
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+        #endif
         SHA256_Final(digest, hd);
+        #if defined(OPENSSL_3_API) && defined(__GNUC__)
+        #pragma GCC diagnostic pop
+        #endif
     }
     free(hd);
 }
@@ -56,7 +77,14 @@ void closeSha256Context(void* ctx, uint8_t * digest)
 void* initializeSha256Context(void* ctx) 
 {
     auto* hd = (SHA256_CTX*)ctx;
+    #if defined(OPENSSL_3_API) && defined(__GNUC__)
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+    #endif
     SHA256_Init(hd);
+    #if defined(OPENSSL_3_API) && defined(__GNUC__)
+    #pragma GCC diagnostic pop
+    #endif
     return (void*)hd;
 }
 
@@ -64,21 +92,42 @@ void finalizeSha256Context(void* ctx, uint8_t * digest)
 {
     auto* hd = (SHA256_CTX*)ctx;
     if (digest != nullptr && hd != nullptr) {
+        #if defined(OPENSSL_3_API) && defined(__GNUC__)
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+        #endif
         SHA256_Final(digest, hd);
+        #if defined(OPENSSL_3_API) && defined(__GNUC__)
+        #pragma GCC diagnostic pop
+        #endif
     }
 }
 
 void sha256Ctx(void* ctx, const uint8_t* data, uint64_t dataLength)
 {
     auto* hd = (SHA256_CTX*)ctx;
+    #if defined(OPENSSL_3_API) && defined(__GNUC__)
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+    #endif
     SHA256_Update(hd, data, dataLength);
+    #if defined(OPENSSL_3_API) && defined(__GNUC__)
+    #pragma GCC diagnostic pop
+    #endif
 }
 
 void sha256Ctx(void* ctx, const std::vector<const uint8_t*>& data, const std::vector<uint64_t>& dataLength)
 {
     auto* hd = (SHA256_CTX*)ctx;
 
+    #if defined(OPENSSL_3_API) && defined(__GNUC__)
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+    #endif
     for (size_t i = 0, size = data.size(); i < size; i++) {
         SHA256_Update(hd, data[i], dataLength[i]);
     }
+    #if defined(OPENSSL_3_API) && defined(__GNUC__)
+    #pragma GCC diagnostic pop
+    #endif
 }
