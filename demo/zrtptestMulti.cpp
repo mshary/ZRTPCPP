@@ -295,13 +295,13 @@ public:
                 if (zrxcbMulti != NULL) {
                     str = session->getMultiStrParams(&zrtpMaster);
                     zrxcbMulti->setMultiStrParams(str, zrtpMaster);
-                    fprintf(stderr, "Master (test r): %p\n", zrtpMaster);
+                    fprintf(stderr, "Master (test r): %p\n", static_cast<void*>(zrtpMaster));
                     zrxcbMulti->start();
                 }
                 if (ztxcbMulti != NULL) {
                     str = session->getMultiStrParams(&zrtpMaster);
                     ztxcbMulti->setMultiStrParams(str, zrtpMaster);
-                    fprintf(stderr, "Master (test t): %p\n", zrtpMaster);
+                    fprintf(stderr, "Master (test t): %p\n", static_cast<void*>(zrtpMaster));
                     ztxcbMulti->start();
                 }
                 if (sender) {

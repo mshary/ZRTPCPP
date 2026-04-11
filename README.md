@@ -1,3 +1,13 @@
+## Notice
+
+This code has experimental changes in various encryption algorithms.
+***DO NOT USE THIS CODEBASE FOR PRODUCTION SYSTEMS***
+
+The original code is available here,
+
+https://github.com/wernerd/ZRTPCPP
+
+
 ## GNU ZRTP C++
 
 This package provides a library that adds ZRTP support to the GNU

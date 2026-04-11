@@ -1,0 +1,44 @@
+Source: libzrtpcpp
+Section: libs
+Priority: optional
+Maintainer: Muhammad Shahzad Shafi <shaheryarkh@gmail.com>
+Build-Depends: debhelper-compat (= 13),
+               cmake,
+               pkg-config,
+               libccrtp-dev (>= 2.0.0),
+               libssl-dev
+Standards-Version: 4.6.2
+Homepage: https://github.com/wernerd/ZRTPCPP
+Vcs-Browser: https://github.com/wernerd/ZRTPCPP
+Vcs-Git: https://github.com/wernerd/ZRTPCPP.git
+Rules-Requires-Root: no
+
+Package: libzrtpcpp4
+Architecture: any
+Section: libs
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: GNU ZRTP C++ library
+ GNU ZRTP is a C++ library that implements ZRTP key agreement protocol.
+ ZRTP is a key agreement protocol which performs Diffie-Hellman key
+ exchange during call setup in-band in the RTP media stream. It is
+ intended to provide secure voice over IP (VoIP) by adding encryption
+ to the media stream.
+ .
+ This package contains the shared library.
+
+Package: libzrtpcpp-dev
+Architecture: any
+Section: libdevel
+Depends: libzrtpcpp4 (= ${binary:Version}),
+         libccrtp-dev (>= 2.0.0),
+         ${misc:Depends}
+Description: GNU ZRTP C++ library development files
+ GNU ZRTP is a C++ library that implements ZRTP key agreement protocol.
+ ZRTP is a key agreement protocol which performs Diffie-Hellman key
+ exchange during call setup in-band in the RTP media stream. It is
+ intended to provide secure voice over IP (VoIP) by adding encryption
+ to the media stream.
+ .
+ This package contains the development files.
+
+

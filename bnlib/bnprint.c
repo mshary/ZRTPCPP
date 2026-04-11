@@ -59,14 +59,14 @@ bnPrint(FILE *f, char const *prefix, struct BigNum const *bn,
             for (i = 0; i < sizeof(temp); i++)
                 if (fprintf(f, "%02X", temp[i]) < 0)
                     return EOF;
-                if (putc('\\', f) < 0 || putc('\n', f) < 0)
-                    return EOF;
-                if (prefix) {
-                    i = strlen(prefix);
-                    while (i--)
-                        if (putc(' ', f) < 0)
-                            return EOF;
-                }
+            if (putc('\\', f) < 0 || putc('\n', f) < 0)
+                return EOF;
+            if (prefix) {
+                i = strlen(prefix);
+                while (i--)
+                    if (putc(' ', f) < 0)
+                        return EOF;
+            }
         }
         bnExtractBigBytes(bn, temp, 0, len);
         for (i = 0; i < len; i++)

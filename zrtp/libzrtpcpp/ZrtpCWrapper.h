@@ -980,7 +980,7 @@ extern "C"
      */
     const char* zrtp_getSasType(ZrtpContext* zrtpContext);
 #ifdef  __GNUC__ 
-#warning zrtp_getSasType(...) API changed - caller shall free() returned data
+#pragma message "zrtp_getSasType(...) API changed - caller shall free() returned data"
 #endif
 
     /**
