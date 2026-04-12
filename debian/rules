@@ -1,22 +1,38 @@
 #!/usr/bin/make -f
-# -*- makefile -*-
 
-export DH_VERBOSE = 1
-export DEB_BUILD_MAINT_OPTIONS = hardening=+all
-export DEB_CFLAGS_MAINT_APPEND = -Wall -pedantic
-export DEB_CXXFLAGS_MAINT_APPEND = -Wall -pedantic
-export DEB_LDFLAGS_MAINT_APPEND = -Wl,--as-needed
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
 
 %:
-	dh $@ --buildsystem=cmake --parallel
+	dh $@ --buildsystem=cmake
 
 override_dh_auto_configure:
 	dh_auto_configure -- \
-		-DCMAKE_BUILD_TYPE=RelWithDebInfo \
-		-DCMAKE_INSTALL_PREFIX=/usr \
-		-DLIB_SUFFIX=/$(DEB_HOST_MULTIARCH) \
-		-DCCRTP=ON
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCRYPTO_STANDALONE=OFF \
+        -DSQLITE=ON \
+        -DBUILD_STATIC=OFF \
+        -DCMAKE_SKIP_RPATH=ON \
+        -DCMAKE_INSTALL_LIBDIR=lib/$(DEB_HOST_MULTIARCH)
 
-override_dh_auto_test:
-	# Run tests if available
-	dh_auto_test || true
+override_dh_auto_build:
+	dh_auto_build -- VERBOSE=1
+
+override_dh_auto_install:
+	dh_auto_install --destdir=debian/tmp
+
+#override_dh_install:
+#	dh_missing --fail-missing
+
+override_dh_strip:
+	dh_strip --dbgsym-migration='libzrtpcpp4-dbgsym (<< 4.7.0-)'
+
+override_dh_makeshlibs:
+	dh_makeshlibs -plibzrtpcpp4
+
+override_dh_shlibdeps:
+	dh_shlibdeps --all
+
+execute_after_dh_auto_install:
+	find debian/tmp -name '*.la' -delete

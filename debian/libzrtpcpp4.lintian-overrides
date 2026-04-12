@@ -1,0 +1,2 @@
+# These are intentional and acceptable
+libzrtpcpp4: package-name-doesnt-match-sonames libzrtpcpp4

@@ -1,3 +1,4 @@
-usr/include/*
-usr/lib/*/libzrtpcpp.so
-usr/lib/*/pkgconfig/*
+usr/include/libzrtpcpp/*.h
+usr/include/libzrtpcpp/common/*.h
+usr/lib/libzrtpcpp.so
+usr/lib/pkgconfig/*.pc

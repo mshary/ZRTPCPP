@@ -1,0 +1,11 @@
+libzrtpcpp.so.4 libzrtpcpp4 #MINVER#
+* Build-Depends-Package: libzrtpcpp-dev
+_ZN4ZRtp* 4.7.0
+_ZN10ZrtpPacket* 4.7.0
+_ZN11ZrtpConfigure* 4.7.0
+_ZN12ZrtpCallback* 4.7.0
+_ZN14ZrtpCWrapper_* 4.7.0
+_ZN15ZrtpUserCallback* 4.7.0
+_ZN16ZrtpQueue* 4.7.0
+_ZN8Base32_* 4.7.0
+_ZN12EmojiBase32_* 4.7.0

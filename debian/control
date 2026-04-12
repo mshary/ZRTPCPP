@@ -3,42 +3,53 @@ Section: libs
 Priority: optional
 Maintainer: Muhammad Shahzad Shafi <shaheryarkh@gmail.com>
 Build-Depends: debhelper-compat (= 13),
-               cmake,
+               cmake (>= 3.0),
                pkg-config,
                libccrtp-dev (>= 2.0.0),
-               libssl-dev
-Standards-Version: 4.6.2
-Homepage: https://github.com/wernerd/ZRTPCPP
-Vcs-Browser: https://github.com/wernerd/ZRTPCPP
-Vcs-Git: https://github.com/wernerd/ZRTPCPP.git
+               libssl-dev,
+               libsqlite3-dev
 Rules-Requires-Root: no
+Standards-Version: 4.6.0
+Homepage: https://github.com/wernerd/ZRTPCPP
+Vcs-Git: https://github.com/wernerd/ZRTPCPP.git
+Vcs-Browser: https://github.com/wernerd/ZRTPCPP
 
 Package: libzrtpcpp4
 Architecture: any
-Section: libs
-Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: GNU ZRTP C++ library
- GNU ZRTP is a C++ library that implements ZRTP key agreement protocol.
- ZRTP is a key agreement protocol which performs Diffie-Hellman key
- exchange during call setup in-band in the RTP media stream. It is
- intended to provide secure voice over IP (VoIP) by adding encryption
- to the media stream.
+Multi-Arch: same
+Pre-Depends: ${misc:Pre-Depends}
+Depends: ${shlibs:Depends},
+         ${misc:Depends}
+Description: GNU ZRTP library for secure voice communication
+ This library provides ZRTP (Zimmermann Real-time Transport Protocol) support
+ for secure voice communication. It implements the ZRTP key agreement protocol
+ as specified in RFC 6189, allowing ad-hoc key negotiation for Secure RTP
+ (SRTP) sessions.
  .
- This package contains the shared library.
+ Features include:
+  * Multi-stream mode support
+  * Multiple Diffie-Hellman key exchange methods (2048, 3072, 4096 bit)
+  * Elliptic curve cryptography (NIST curves, Curve25519, Curve448)
+  * Multiple cipher suites (AES-128/256, Twofish-128/256)
+  * Skein hash and MAC algorithms
+  * Short Authentication String (SAS) verification
+ .
+ This package contains the shared library needed to run applications
+ that use libzrtpcpp.
 
 Package: libzrtpcpp-dev
 Architecture: any
-Section: libdevel
+Multi-Arch: same
 Depends: libzrtpcpp4 (= ${binary:Version}),
-         libccrtp-dev (>= 2.0.0),
          ${misc:Depends}
-Description: GNU ZRTP C++ library development files
- GNU ZRTP is a C++ library that implements ZRTP key agreement protocol.
- ZRTP is a key agreement protocol which performs Diffie-Hellman key
- exchange during call setup in-band in the RTP media stream. It is
- intended to provide secure voice over IP (VoIP) by adding encryption
- to the media stream.
+Suggests: libzrtpcpp-doc
+Description: Development files for GNU ZRTP library
+ This package contains the header files, static libraries, and development
+ documentation needed to build applications that use the GNU ZRTP library.
  .
- This package contains the development files.
-
-
+ ZRTP (Zimmermann Real-time Transport Protocol) is a key agreement protocol
+ that allows two parties to establish a secure SRTP session without requiring
+ a pre-shared secret or PKI infrastructure.
+ .
+ Install this package if you want to develop applications that integrate
+ ZRTP-based encryption.

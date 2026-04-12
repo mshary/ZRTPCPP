@@ -1,9 +1,10 @@
 libzrtpcpp (4.7.0-1) unstable; urgency=medium
 
-  * Initial Debian package release (Closes: #123456)
-  * Package libzrtpcpp 4.7.0
-  * Fix GCC warnings about #warning directive being pre-C++23 extension
-  * Fix format warnings in demo programs
-  * Build with ccRTP support enabled by default
+  * Initial release. (Closes: #XXXXXX)
+  * Package version 4.7.0
+  * Split into runtime and development packages
+  * Use OpenSSL crypto backend
+  * Enable SQLite cache backend
+  * Build with CMake
 
- -- Muhammad Shahzad Shafi <shaheryarkh@gmail.com>  Sat, 11 Apr 2026 01:37:00 +0000
+ -- Muhammad Shahzad Shafi <shaheryarkh@gmail.com>  Sun, 12 Apr 2026 00:00:00 +0000

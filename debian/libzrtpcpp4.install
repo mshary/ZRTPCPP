@@ -1,2 +1,1 @@
-usr/lib/*/libzrtpcpp.so.*
-usr/lib/*/pkgconfig/*
+usr/lib/libzrtpcpp.so.*
