@@ -57,6 +57,15 @@ static BIGNUM* bnP4096MinusOne = nullptr;
 
 static uint8_t dhinit = 0;
 
+#if defined(_WIN32) || defined(_WIN64)
+#include <windows.h>
+static CRITICAL_SECTION dh_init_lock;
+static volatile LONG dh_init_started = 0;
+#else
+#include <pthread.h>
+static pthread_mutex_t dh_init_lock = PTHREAD_MUTEX_INITIALIZER;
+#endif
+
 void randomZRTP(uint8_t *buf, int32_t length)
 {
 //    initializeOpenSSL();
@@ -175,6 +184,13 @@ static const uint8_t P4096[] =
 ZrtpDH::ZrtpDH(const char* type) {
 
     uint8_t random[64];
+    
+    ctx = nullptr;
+    pkType = -1;
+
+    if (type == nullptr) {
+        return;
+    }
 
     // Well - the algo type is only 4 char thus cast to int32 and compare
     if (*(int32_t*)type == *(int32_t*)dh2k) {
@@ -192,29 +208,60 @@ ZrtpDH::ZrtpDH(const char* type) {
     else if (*(int32_t*)type == *(int32_t*)ec38) {
         pkType = EC38;
     }
+    else if (*(int32_t*)type == *(int32_t*)e255) {
+        pkType = E255;
+    }
+    else if (*(int32_t*)type == *(int32_t*)e414) {
+        pkType = E414;
+    }
     else {
         return;
     }
 
-//  initializeOpenSSL();
+#if defined(_WIN32) || defined(_WIN64)
+    if (InterlockedCompareExchange(&dh_init_started, 1, 0) == 0) {
+        InitializeCriticalSection(&dh_init_lock);
+    }
+    EnterCriticalSection(&dh_init_lock);
+#else
+    pthread_mutex_lock(&dh_init_lock);
+#endif
 
     if (!dhinit) {
         bnP2048 = BN_bin2bn(P2048,sizeof(P2048),nullptr);
         bnP3072 = BN_bin2bn(P3072,sizeof(P3072),nullptr);
         bnP4096 = BN_bin2bn(P4096,sizeof(P4096),nullptr);
 
-        bnP2048MinusOne = BN_dup(bnP2048);
-        BN_sub_word(bnP2048MinusOne, 1);
+        if (bnP2048 && bnP3072 && bnP4096) {
+            bnP2048MinusOne = BN_dup(bnP2048);
+            if (bnP2048MinusOne) {
+                BN_sub_word(bnP2048MinusOne, 1);
+            }
 
-        bnP3072MinusOne = BN_dup(bnP3072);
-        BN_sub_word(bnP3072MinusOne, 1);
+            bnP3072MinusOne = BN_dup(bnP3072);
+            if (bnP3072MinusOne) {
+                BN_sub_word(bnP3072MinusOne, 1);
+            }
 
-        bnP4096MinusOne = BN_dup(bnP4096);
-        BN_sub_word(bnP4096MinusOne, 1);
-        dhinit = 1;
+            bnP4096MinusOne = BN_dup(bnP4096);
+            if (bnP4096MinusOne) {
+                BN_sub_word(bnP4096MinusOne, 1);
+            }
+            dhinit = 1;
+        }
+    }
+    
+#if defined(_WIN32) || defined(_WIN64)
+    LeaveCriticalSection(&dh_init_lock);
+#else
+    pthread_mutex_unlock(&dh_init_lock);
+#endif
+
+    if (!dhinit) {
+        pkType = -1;
+        return;
     }
 
-    DH* tmpCtx = nullptr;
     switch (pkType) {
     case DH2K:
     case DH3K:
@@ -223,35 +270,62 @@ ZrtpDH::ZrtpDH(const char* type) {
         #pragma GCC diagnostic push
         #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
         #endif
-        ctx = static_cast<void*>(DH_new());
+        DH* tmpCtx = DH_new();
+        if (tmpCtx == nullptr) {
+            pkType = -1;
+            return;
+        }
+        ctx = static_cast<void*>(tmpCtx);
         #if defined(OPENSSL_3_API) && defined(__GNUC__)
         #pragma GCC diagnostic pop
         #endif
-        tmpCtx = static_cast<DH*>(ctx);
+        
         BIGNUM* g = BN_new();
+        if (g == nullptr) {
+            DH_free(tmpCtx);
+            ctx = nullptr;
+            pkType = -1;
+            return;
+        }
         BN_set_word(g, DH_GENERATOR_2);
 
+        BIGNUM* p = nullptr;
+        int priv_key_len = 0;
+        
         if (pkType == DH2K) {
-            BIGNUM* p = BN_dup(bnP2048);
-            RAND_bytes(random, 32);
-            BIGNUM* priv_key = BN_bin2bn(random, 32, nullptr);
-            zrtp_DH_set0_pqg(tmpCtx, p, nullptr, g);
-            zrtp_DH_set0_key(tmpCtx, nullptr, priv_key);
+            p = BN_dup(bnP2048);
+            priv_key_len = 32;
         }
         else if (pkType == DH3K) {
-            BIGNUM* p = BN_dup(bnP3072);
-            RAND_bytes(random, 64);
-            BIGNUM* priv_key = BN_bin2bn(random, 32, nullptr);
-            zrtp_DH_set0_pqg(tmpCtx, p, nullptr, g);
-            zrtp_DH_set0_key(tmpCtx, nullptr, priv_key);
+            p = BN_dup(bnP3072);
+            priv_key_len = 48;
         }
         else if (pkType == DH4K) {
-            BIGNUM* p = BN_dup(bnP4096);
-            RAND_bytes(random, 64);
-            BIGNUM* priv_key = BN_bin2bn(random, 32, nullptr);
-            zrtp_DH_set0_pqg(tmpCtx, p, nullptr, g);
-            zrtp_DH_set0_key(tmpCtx, nullptr, priv_key);
+            p = BN_dup(bnP4096);
+            priv_key_len = 64;
         }
+        
+        if (p == nullptr) {
+            BN_free(g);
+            DH_free(tmpCtx);
+            ctx = nullptr;
+            pkType = -1;
+            return;
+        }
+        
+        RAND_bytes(random, priv_key_len);
+        BIGNUM* priv_key = BN_bin2bn(random, priv_key_len, nullptr);
+        if (priv_key == nullptr) {
+            BN_free(p);
+            BN_free(g);
+            DH_free(tmpCtx);
+            ctx = nullptr;
+            pkType = -1;
+            return;
+        }
+        
+        zrtp_DH_set0_pqg(tmpCtx, p, nullptr, g);
+        zrtp_DH_set0_key(tmpCtx, nullptr, priv_key);
         break;
     }
 
@@ -264,6 +338,9 @@ ZrtpDH::ZrtpDH(const char* type) {
         #if defined(OPENSSL_3_API) && defined(__GNUC__)
         #pragma GCC diagnostic pop
         #endif
+        if (ctx == nullptr) {
+            pkType = -1;
+        }
         break;
     }
     case EC38: {
@@ -275,10 +352,34 @@ ZrtpDH::ZrtpDH(const char* type) {
         #if defined(OPENSSL_3_API) && defined(__GNUC__)
         #pragma GCC diagnostic pop
         #endif
+        if (ctx == nullptr) {
+            pkType = -1;
+        }
+        break;
+    }
+    
+    case E255: {
+        #if defined(OPENSSL_3_API) && defined(__GNUC__)
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+        #endif
+        ctx = static_cast<void*>(EC_KEY_new_by_curve_name(NID_X25519));
+        #if defined(OPENSSL_3_API) && defined(__GNUC__)
+        #pragma GCC diagnostic pop
+        #endif
+        if (ctx == nullptr) {
+            pkType = -1;
+        }
+        break;
+    }
+    
+    case E414: {
+        pkType = -1;
         break;
     }
 
     default:
+        pkType = -1;
         break;
     }
 }
@@ -303,6 +404,7 @@ ZrtpDH::~ZrtpDH() {
 
     case EC25:
     case EC38:
+    case E255:
         #if defined(OPENSSL_3_API) && defined(__GNUC__)
         #pragma GCC diagnostic push
         #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
@@ -312,6 +414,10 @@ ZrtpDH::~ZrtpDH() {
         #pragma GCC diagnostic pop
         #endif
         break;
+        
+    case E414:
+        break;
+        
     default:
         return;
     }
@@ -319,65 +425,118 @@ ZrtpDH::~ZrtpDH() {
 
 int32_t ZrtpDH::computeSecretKey(uint8_t *pubKeyBytes, uint8_t *secret) {
 
+    if (ctx == nullptr || pkType < 0) {
+        return -1;
+    }
+
+    if (pubKeyBytes == nullptr || secret == nullptr) {
+        return -1;
+    }
+
     if (pkType == DH2K || pkType == DH3K || pkType == DH4K) {
         auto* tmpCtx = static_cast<DH*>(ctx);
 
-        const BIGNUM* old_pub_key;
-        zrtp_DH_get0_key(tmpCtx, &old_pub_key, nullptr);
-        if (old_pub_key != nullptr) {
-            // In OpenSSL 1.1.x and 3.x, we don't own the BIGNUM, so we don't free it
-            // Just set new public key
+        int32_t dhSize = getDhSize();
+        if (dhSize <= 0) {
+            return -1;
         }
-        BIGNUM* new_pub_key = BN_bin2bn(pubKeyBytes, getDhSize(), nullptr);
-        zrtp_DH_set0_key(tmpCtx, new_pub_key, nullptr);
+
+        BIGNUM* new_pub_key = BN_bin2bn(pubKeyBytes, dhSize, nullptr);
+        if (new_pub_key == nullptr) {
+            return -1;
+        }
+        
         #if defined(OPENSSL_3_API) && defined(__GNUC__)
         #pragma GCC diagnostic push
         #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
         #endif
-        return DH_compute_key(secret, new_pub_key, tmpCtx);
+        int result = DH_compute_key(secret, new_pub_key, tmpCtx);
         #if defined(OPENSSL_3_API) && defined(__GNUC__)
         #pragma GCC diagnostic pop
         #endif
+        
+        BN_free(new_pub_key);
+        
+        if (result < 0) {
+            return -1;
+        }
+        
+        return result;
     }
-    if (pkType == EC25 || pkType == EC38) {
+    
+    if (pkType == EC25 || pkType == EC38 || pkType == E255) {
         uint8_t buffer[200];
         int32_t ret;
         int32_t len = getPubKeySize();
-        if (len+1 > static_cast<int32_t>(sizeof(buffer))) {
+        
+        if (len <= 0 || len+1 > static_cast<int32_t>(sizeof(buffer))) {
             return -1;
         }
 
         buffer[0] = POINT_CONVERSION_UNCOMPRESSED;
         memcpy(buffer+1, pubKeyBytes, len);
         
-        EC_POINT* point = EC_POINT_new(EC_KEY_get0_group(static_cast<EC_KEY*>(ctx)));
-        EC_POINT_oct2point(EC_KEY_get0_group(static_cast<EC_KEY*>(ctx)),
-                                             point, buffer, len+1, nullptr);
+        EC_KEY* ecKey = static_cast<EC_KEY*>(ctx);
+        if (ecKey == nullptr) {
+            return -1;
+        }
+        
+        EC_POINT* point = EC_POINT_new(EC_KEY_get0_group(ecKey));
+        if (point == nullptr) {
+            return -1;
+        }
+        
+        if (EC_POINT_oct2point(EC_KEY_get0_group(ecKey), point, buffer, len+1, nullptr) != 1) {
+            EC_POINT_free(point);
+            return -1;
+        }
+        
+        int32_t secretLen = getDhSize();
+        if (secretLen <= 0) {
+            EC_POINT_free(point);
+            return -1;
+        }
+        
         #if defined(OPENSSL_3_API) && defined(__GNUC__)
         #pragma GCC diagnostic push
         #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
         #endif
-        ret = ECDH_compute_key(secret, getDhSize(), point, static_cast<EC_KEY*>(ctx), nullptr);
+        ret = ECDH_compute_key(secret, secretLen, point, ecKey, nullptr);
         #if defined(OPENSSL_3_API) && defined(__GNUC__)
         #pragma GCC diagnostic pop
         #endif
         EC_POINT_free(point);
+        
+        if (ret < 0) {
+            return -1;
+        }
+        
         return ret;
     }
+    
+    if (pkType == E414) {
+        return -1;
+    }
+    
     return -1;
 }
 
 int32_t ZrtpDH::generatePublicKey()
 {
+    if (ctx == nullptr || pkType < 0) {
+        return 0;
+    }
+
     if (pkType == DH2K || pkType == DH3K || pkType == DH4K) {
         #if defined(OPENSSL_3_API) && defined(__GNUC__)
         #pragma GCC diagnostic push
         #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
         #endif
-        return DH_generate_key(static_cast<DH*>(ctx));
+        int result = DH_generate_key(static_cast<DH*>(ctx));
         #if defined(OPENSSL_3_API) && defined(__GNUC__)
         #pragma GCC diagnostic pop
         #endif
+        return result;
     }
 
     if (pkType == EC25 || pkType == EC38) {
@@ -385,17 +544,26 @@ int32_t ZrtpDH::generatePublicKey()
         #pragma GCC diagnostic push
         #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
         #endif
-        return EC_KEY_generate_key(static_cast<EC_KEY*>(ctx));
+        int result = EC_KEY_generate_key(static_cast<EC_KEY*>(ctx));
         #if defined(OPENSSL_3_API) && defined(__GNUC__)
         #pragma GCC diagnostic pop
         #endif
+        return result;
     }
     return 0;
 }
 
 uint32_t ZrtpDH::getDhSize() const
 {
+    if (pkType < 0) {
+        return 0;
+    }
+    
     if (pkType == DH2K || pkType == DH3K || pkType == DH4K) {
+        if (ctx == nullptr) {
+            return 0;
+        }
+        
         #if defined(OPENSSL_3_API) && defined(__GNUC__)
         #pragma GCC diagnostic push
         #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
@@ -410,87 +578,165 @@ uint32_t ZrtpDH::getDhSize() const
         return 32;
     if (pkType == EC38)
         return 48;
+    if (pkType == E255)
+        return 32;
+    if (pkType == E414)
+        return 52;
 
     return 0;
 }
 
 int32_t ZrtpDH::getPubKeySize() const
 {
+    if (ctx == nullptr || pkType < 0) {
+        return 0;
+    }
+
     if (pkType == DH2K || pkType == DH3K || pkType == DH4K) {
         const BIGNUM* pub_key = zrtp_DH_get0_pub_key(static_cast<DH*>(ctx));
+        if (pub_key == nullptr) {
+            return 0;
+        }
         return BN_num_bytes(pub_key);
     }
 
-    if (pkType == EC25 || pkType == EC38) {
+    if (pkType == EC25 || pkType == EC38 || pkType == E255) {
         #if defined(OPENSSL_3_API) && defined(__GNUC__)
         #pragma GCC diagnostic push
         #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
         #endif
-        return EC_POINT_point2oct(EC_KEY_get0_group(static_cast<EC_KEY*>(ctx)),
-                                  EC_KEY_get0_public_key(static_cast<EC_KEY*>(ctx)),
-                                  POINT_CONVERSION_UNCOMPRESSED, nullptr, 0, nullptr) - 1;
+        EC_KEY* ecKey = static_cast<EC_KEY*>(ctx);
+        const EC_POINT* pub_key = EC_KEY_get0_public_key(ecKey);
+        if (pub_key == nullptr) {
+            return 0;
+        }
+        
+        size_t len = EC_POINT_point2oct(EC_KEY_get0_group(ecKey),
+                                  pub_key,
+                                  POINT_CONVERSION_UNCOMPRESSED, nullptr, 0, nullptr);
         #if defined(OPENSSL_3_API) && defined(__GNUC__)
         #pragma GCC diagnostic pop
         #endif
+        
+        if (len == 0) {
+            return 0;
+        }
+        
+        return static_cast<int32_t>(len - 1);
     }
+    
+    if (pkType == E414) {
+        return 52;
+    }
+    
     return 0;
 
 }
 
 int32_t ZrtpDH::getPubKeyBytes(uint8_t *buf) const
 {
+    if (ctx == nullptr || pkType < 0 || buf == nullptr) {
+        return 0;
+    }
 
     if (pkType == DH2K || pkType == DH3K || pkType == DH4K) {
-        // get len of pub_key, prepend with zeros to DH size
-        int32_t prepend = getDhSize() - getPubKeySize();
+        int32_t pubKeySize = getPubKeySize();
+        if (pubKeySize <= 0) {
+            return 0;
+        }
+        
+        int32_t dhSize = getDhSize();
+        int32_t prepend = dhSize - pubKeySize;
         if (prepend > 0) {
             memset(buf, 0, prepend);
         }
         const BIGNUM* pub_key = zrtp_DH_get0_pub_key(static_cast<DH*>(ctx));
+        if (pub_key == nullptr) {
+            return 0;
+        }
         return BN_bn2bin(pub_key, buf + prepend);
     }
-    if (pkType == EC25 || pkType == EC38) {
+    
+    if (pkType == EC25 || pkType == EC38 || pkType == E255) {
         uint8_t buffer[200];
 
         #if defined(OPENSSL_3_API) && defined(__GNUC__)
         #pragma GCC diagnostic push
         #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
         #endif
-        size_t len = EC_POINT_point2oct(EC_KEY_get0_group(static_cast<EC_KEY*>(ctx)),
-                                     EC_KEY_get0_public_key(static_cast<EC_KEY*>(ctx)),
-                                     POINT_CONVERSION_UNCOMPRESSED, buffer, 200, nullptr);
+        EC_KEY* ecKey = static_cast<EC_KEY*>(ctx);
+        const EC_POINT* pub_key = EC_KEY_get0_public_key(ecKey);
+        if (pub_key == nullptr) {
+            return 0;
+        }
+        
+        size_t len = EC_POINT_point2oct(EC_KEY_get0_group(ecKey),
+                                     pub_key,
+                                     POINT_CONVERSION_UNCOMPRESSED, buffer, sizeof(buffer), nullptr);
         #if defined(OPENSSL_3_API) && defined(__GNUC__)
         #pragma GCC diagnostic pop
         #endif
+        
+        if (len <= 1) {
+            return 0;
+        }
+        
         memcpy(buf, buffer+1, len-1);
         return static_cast<int32_t>(len-1);
     }
+    
+    if (pkType == E414) {
+        return 0;
+    }
+    
     return 0;
 }
 
 int32_t ZrtpDH::checkPubKey(uint8_t *pubKeyBytes) const
 {
+    if (ctx == nullptr || pkType < 0 || pubKeyBytes == nullptr) {
+        return 0;
+    }
+
     if (pkType == EC25 || pkType == EC38) {
         uint8_t buffer[200];
         int32_t ret;
         int32_t len = getPubKeySize();
 
-        if (len+1 > static_cast<int32_t>(sizeof(buffer))) {
+        if (len <= 0 || len+1 > static_cast<int32_t>(sizeof(buffer))) {
             return 0;
         }
         buffer[0] = POINT_CONVERSION_UNCOMPRESSED;
         memcpy(buffer+1, pubKeyBytes, len);
 
+        EC_KEY* ecKey = static_cast<EC_KEY*>(ctx);
         #if defined(OPENSSL_3_API) && defined(__GNUC__)
         #pragma GCC diagnostic push
         #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
         #endif
-        EC_POINT* point = EC_POINT_new(EC_KEY_get0_group(static_cast<EC_KEY*>(ctx)));
-        EC_POINT_oct2point(EC_KEY_get0_group(static_cast<EC_KEY*>(ctx)),
-                                             point, buffer, len+1, nullptr);
+        EC_POINT* point = EC_POINT_new(EC_KEY_get0_group(ecKey));
+        if (point == nullptr) {
+            return 0;
+        }
+        
+        if (EC_POINT_oct2point(EC_KEY_get0_group(ecKey), point, buffer, len+1, nullptr) != 1) {
+            EC_POINT_free(point);
+            return 0;
+        }
+        
         EC_KEY* chkKey = EC_KEY_new();
-        EC_KEY_set_group(chkKey, EC_KEY_get0_group(static_cast<EC_KEY*>(ctx)));
-        EC_KEY_set_public_key(chkKey, point);
+        if (chkKey == nullptr) {
+            EC_POINT_free(point);
+            return 0;
+        }
+        
+        if (EC_KEY_set_group(chkKey, EC_KEY_get0_group(ecKey)) != 1 ||
+            EC_KEY_set_public_key(chkKey, point) != 1) {
+            EC_KEY_free(chkKey);
+            EC_POINT_free(point);
+            return 0;
+        }
+        
         ret = EC_KEY_check_key(chkKey);
         #if defined(OPENSSL_3_API) && defined(__GNUC__)
         #pragma GCC diagnostic pop
@@ -509,29 +755,40 @@ int32_t ZrtpDH::checkPubKey(uint8_t *pubKeyBytes) const
         return ret;
     }
 
-    BIGNUM* pubKeyOther = BN_bin2bn(pubKeyBytes, getDhSize(), nullptr);
+    int32_t dhSize = getDhSize();
+    if (dhSize <= 0) {
+        return 0;
+    }
 
+    BIGNUM* pubKeyOther = BN_bin2bn(pubKeyBytes, dhSize, nullptr);
+    if (pubKeyOther == nullptr) {
+        return 0;
+    }
+
+    int result = 1;
+    
     if (pkType == DH2K) {
         if (BN_cmp(bnP2048MinusOne, pubKeyOther) == 0)
-            return 0;
+            result = 0;
     }
     else if (pkType == DH3K) {
         if (BN_cmp(bnP3072MinusOne, pubKeyOther) == 0)
-            return 0;
+            result = 0;
     }
     else if (pkType == DH4K) {
         if (BN_cmp(bnP4096MinusOne, pubKeyOther) == 0)
-            return 0;
+            result = 0;
     }
     else {
-        return 0;
+        result = 0;
     }
-    int one = BN_is_one(pubKeyOther);
-    if (one == 1)
-        return 0;
+    
+    if (result && BN_is_one(pubKeyOther)) {
+        result = 0;
+    }
 
     BN_free(pubKeyOther);
-    return 1;
+    return result;
 }
 
 const char* ZrtpDH::getDHtype()
@@ -547,6 +804,10 @@ const char* ZrtpDH::getDHtype()
         return ec25;
     case EC38:
         return ec38;
+    case E255:
+        return e255;
+    case E414:
+        return e414;
     default:
         return nullptr;
     }
