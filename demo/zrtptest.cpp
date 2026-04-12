@@ -477,12 +477,12 @@ public:
     int doTest() {
         ExtZrtpSession tx(/*pattern.getSsrc(),*/ pattern.getSenderAddress(), pattern.getSenderPort());
         config.clear();
-//        config.setStandardConfig();
+        config.setStandardConfig();
 //         config.addAlgo(PubKeyAlgorithm, zrtpPubKeys.getByName("DH2k"));
 //         config.addAlgo(PubKeyAlgorithm, zrtpPubKeys.getByName("DH3k"));
 
         // This ordering prefers NIST
-        //config.addAlgo(PubKeyAlgorithm, zrtpPubKeys.getByName("DH4k"));
+        config.addAlgo(PubKeyAlgorithm, zrtpPubKeys.getByName("DH4k"));
         config.addAlgo(PubKeyAlgorithm, zrtpPubKeys.getByName("EC38"));
         config.addAlgo(PubKeyAlgorithm, zrtpPubKeys.getByName("E414"));
 
@@ -562,10 +562,11 @@ public:
     int doTest() {
         ExtZrtpSession rx( /*pattern.getSsrc()+1,*/ pattern.getReceiverAddress(), pattern.getReceiverPort());
         config.clear();
-//        config.setStandardConfig();
+        config.setStandardConfig();
+//         config.addAlgo(PubKeyAlgorithm, zrtpPubKeys.getByName("DH2k"));
 //         config.addAlgo(PubKeyAlgorithm, zrtpPubKeys.getByName("DH3k"));
 
-         //config.addAlgo(PubKeyAlgorithm, zrtpPubKeys.getByName("DH4k"));
+         config.addAlgo(PubKeyAlgorithm, zrtpPubKeys.getByName("DH4k"));
          config.addAlgo(PubKeyAlgorithm, zrtpPubKeys.getByName("E414"));
          config.addAlgo(PubKeyAlgorithm, zrtpPubKeys.getByName("EC38"));
 

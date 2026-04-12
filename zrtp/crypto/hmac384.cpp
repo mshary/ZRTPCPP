@@ -36,7 +36,7 @@ static int32_t hmacSha384Init(hmacSha384Context *ctx, const uint8_t *key, uint64
     uint8_t localPad[SHA384_BLOCK_SIZE] = {0};
     uint8_t localKey[SHA384_BLOCK_SIZE] = {0};
 
-    if (key == nullptr)
+    if (ctx == nullptr || key == nullptr)
         return 0;
 
     memset(ctx, 0, sizeof(hmacSha384Context));
@@ -52,14 +52,14 @@ static int32_t hmacSha384Init(hmacSha384Context *ctx, const uint8_t *key, uint64
     }
     /* prepare inner hash and hold the context */
     for (i = 0; i < SHA384_BLOCK_SIZE; i++)
-        localPad[i] = static_cast<uint_8t >(localKey[i] ^ 0x36);
+        localPad[i] = static_cast<uint8_t>(localKey[i] ^ 0x36);
 
     sha384_begin(&ctx->innerCtx);
     sha384_hash(localPad, SHA384_BLOCK_SIZE, &ctx->innerCtx);
 
     /* prepare outer hash and hold the context */
     for (i = 0; i < SHA384_BLOCK_SIZE; i++)
-        localPad[i] = static_cast<uint_8t >(localKey[i] ^ 0x5c);
+        localPad[i] = static_cast<uint8_t>(localKey[i] ^ 0x5c);
 
     sha384_begin(&ctx->outerCtx);
     sha384_hash(localPad, SHA384_BLOCK_SIZE, &ctx->outerCtx);
@@ -104,9 +104,16 @@ static void hmacSha384Final(hmacSha384Context *ctx, uint8_t *mac)
 
 void hmac_sha384(const uint8_t *key, uint64_t keyLength, const uint8_t* data, uint64_t dataLength, uint8_t* mac, uint32_t* macLength)
 {
+    if (key == nullptr || data == nullptr || mac == nullptr || macLength == nullptr) {
+        return;
+    }
+    
     hmacSha384Context ctx = {};
 
-    hmacSha384Init(&ctx, key, keyLength);
+    if (!hmacSha384Init(&ctx, key, keyLength)) {
+        return;
+    }
+    
     hmacSha384Update(&ctx, data, dataLength);
     hmacSha384Final(&ctx, mac);
     *macLength = SHA384_DIGEST_SIZE;
@@ -117,11 +124,20 @@ void hmacSha384(const uint8_t* key, uint64_t keyLength,
                 const std::vector<uint64_t>& dataLength,
                 uint8_t* mac, uint32_t* macLength )
 {
+    if (key == nullptr || mac == nullptr || macLength == nullptr) {
+        return;
+    }
+    
     hmacSha384Context ctx = {};
 
-    hmacSha384Init(&ctx, key, keyLength);
+    if (!hmacSha384Init(&ctx, key, keyLength)) {
+        return;
+    }
 
     for (size_t i = 0, size = data.size(); i < size; i++) {
+        if (data[i] == nullptr || dataLength[i] == 0) {
+            continue;
+        }
         hmacSha384Update(&ctx, data[i], dataLength[i]);
     }
     hmacSha384Final(&ctx, mac);
@@ -130,10 +146,17 @@ void hmacSha384(const uint8_t* key, uint64_t keyLength,
 
 void* createSha384HmacContext(const uint8_t* key, uint64_t keyLength)
 {
+    if (key == nullptr) {
+        return nullptr;
+    }
+    
     auto *ctx = reinterpret_cast<hmacSha384Context*>(malloc(sizeof(hmacSha384Context)));
 
     if (ctx != nullptr) {
-        hmacSha384Init(ctx, key, keyLength);
+        if (!hmacSha384Init(ctx, key, keyLength)) {
+            free(ctx);
+            return nullptr;
+        }
     }
     return ctx;
 }
@@ -141,6 +164,10 @@ void* createSha384HmacContext(const uint8_t* key, uint64_t keyLength)
 void hmacSha384Ctx(void* ctx, const uint8_t* data, uint64_t dataLength,
                 uint8_t* mac, uint32_t* macLength)
 {
+    if (ctx == nullptr || data == nullptr || mac == nullptr || macLength == nullptr) {
+        return;
+    }
+    
     auto* pctx = (hmacSha384Context*)ctx;
 
     hmacSha384Reset(pctx);
@@ -154,10 +181,17 @@ void hmacSha384Ctx(void* ctx,
                    const std::vector<uint64_t>& dataLength,
                    uint8_t* mac, uint32_t* macLength )
 {
+    if (ctx == nullptr || mac == nullptr || macLength == nullptr) {
+        return;
+    }
+    
     auto* pctx = (hmacSha384Context*)ctx;
 
     hmacSha384Reset(pctx);
     for (size_t i = 0, size = data.size(); i < size; i++) {
+        if (data[i] == nullptr || dataLength[i] == 0) {
+            continue;
+        }
         hmacSha384Update(pctx, data[i], dataLength[i]);
     }
     hmacSha384Final(pctx, mac);

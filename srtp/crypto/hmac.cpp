@@ -28,7 +28,7 @@ static int32_t hmacSha1Init(hmacSha1Context *ctx, const uint8_t *key, uint64_t k
     uint8_t localPad[SHA1_BLOCK_SIZE] = {0};
     uint8_t localKey[SHA1_BLOCK_SIZE] = {0};
 
-    if (key == nullptr)
+    if (ctx == nullptr || key == nullptr)
         return 0;
 
     memset(ctx, 0, sizeof(hmacSha1Context));
@@ -44,14 +44,14 @@ static int32_t hmacSha1Init(hmacSha1Context *ctx, const uint8_t *key, uint64_t k
     }
     /* prepare inner hash and hold the context */
     for (i = 0; i < SHA1_BLOCK_SIZE; i++)
-        localPad[i] = static_cast<uint_8t >(localKey[i] ^ 0x36);
+        localPad[i] = static_cast<uint8_t>(localKey[i] ^ 0x36);
 
     sha1_begin(&ctx->innerCtx);
     sha1_hash(localPad, SHA1_BLOCK_SIZE, &ctx->innerCtx);
 
     /* prepare outer hash and hold the context */
     for (i = 0; i < SHA1_BLOCK_SIZE; i++)
-        localPad[i] = static_cast<uint_8t >(localKey[i] ^ 0x5c);
+        localPad[i] = static_cast<uint8_t>(localKey[i] ^ 0x5c);
 
     sha1_begin(&ctx->outerCtx);
     sha1_hash(localPad, SHA1_BLOCK_SIZE, &ctx->outerCtx);
@@ -96,12 +96,19 @@ static void hmacSha1Final(hmacSha1Context *ctx, uint8_t *mac)
 
 void hmac_sha1(const uint8_t *key, uint64_t keyLength, const uint8_t* data, uint32_t dataLength, uint8_t* mac, int32_t* macLength)
 {
+    if (key == nullptr || data == nullptr || mac == nullptr || macLength == nullptr) {
+        return;
+    }
+    
     hmacSha1Context ctx = {};
 
-    hmacSha1Init(&ctx, key, keyLength);
+    if (!hmacSha1Init(&ctx, key, keyLength)) {
+        return;
+    }
+    
     hmacSha1Update(&ctx, data, dataLength);
     hmacSha1Final(&ctx, mac);
-    *macLength = SHA1_BLOCK_SIZE;
+    *macLength = SHA1_DIGEST_SIZE;
 }
 
 void hmac_sha1(const uint8_t* key, uint64_t keyLength,
@@ -109,44 +116,70 @@ void hmac_sha1(const uint8_t* key, uint64_t keyLength,
                const std::vector<uint64_t>& dataLength,
                uint8_t* mac, uint32_t* macLength )
 {
+    if (key == nullptr || mac == nullptr || macLength == nullptr) {
+        return;
+    }
+    
     hmacSha1Context ctx = {};
 
-    hmacSha1Init(&ctx, key, keyLength);
+    if (!hmacSha1Init(&ctx, key, keyLength)) {
+        return;
+    }
 
     for (size_t i = 0, size = data.size(); i < size; i++) {
+        if (data[i] == nullptr || dataLength[i] == 0) {
+            continue;
+        }
         hmacSha1Update(&ctx, data[i], dataLength[i]);
     }
     hmacSha1Final(&ctx, mac);
-    *macLength = SHA1_BLOCK_SIZE;
+    *macLength = SHA1_DIGEST_SIZE;
 }
 
 void* createSha1HmacContext(const uint8_t* key, uint64_t keyLength)
 {
+    if (key == nullptr) {
+        return nullptr;
+    }
+    
     auto *ctx = reinterpret_cast<hmacSha1Context*>(malloc(sizeof(hmacSha1Context)));
     if (ctx == nullptr)
         return nullptr;
 
-    hmacSha1Init(ctx, key, keyLength);
+    if (!hmacSha1Init(ctx, key, keyLength)) {
+        free(ctx);
+        return nullptr;
+    }
     return ctx;
 }
 
 void* initializeSha1HmacContext(void* ctx, uint8_t* key, uint64_t keyLength)
 {
+    if (ctx == nullptr || key == nullptr) {
+        return nullptr;
+    }
+    
     auto *pctx = (hmacSha1Context*)ctx;
 
-    hmacSha1Init(pctx, key, keyLength);
+    if (!hmacSha1Init(pctx, key, keyLength)) {
+        return nullptr;
+    }
     return pctx;
 }
 
 void hmacSha1Ctx(void* ctx, const uint8_t* data, uint64_t dataLength,
                 uint8_t* mac, uint32_t* macLength)
 {
+    if (ctx == nullptr || data == nullptr || mac == nullptr || macLength == nullptr) {
+        return;
+    }
+    
     auto *pctx = (hmacSha1Context*)ctx;
 
     hmacSha1Reset(pctx);
     hmacSha1Update(pctx, data, dataLength);
     hmacSha1Final(pctx, mac);
-    *macLength = SHA1_BLOCK_SIZE;
+    *macLength = SHA1_DIGEST_SIZE;
 }
 
 void hmacSha1Ctx(void* ctx,
@@ -154,14 +187,21 @@ void hmacSha1Ctx(void* ctx,
                  const std::vector<uint64_t>& dataLength,
                  uint8_t* mac, uint32_t* macLength )
 {
+    if (ctx == nullptr || mac == nullptr || macLength == nullptr) {
+        return;
+    }
+    
     auto *pctx = (hmacSha1Context*)ctx;
 
     hmacSha1Reset(pctx);
     for (size_t i = 0, size = data.size(); i < size; i++) {
+        if (data[i] == nullptr || dataLength[i] == 0) {
+            continue;
+        }
         hmacSha1Update(pctx, data[i], dataLength[i]);
     }
     hmacSha1Final(pctx, mac);
-    *macLength = SHA1_BLOCK_SIZE;
+    *macLength = SHA1_DIGEST_SIZE;
 }
 
 void freeSha1HmacContext(void* ctx)
